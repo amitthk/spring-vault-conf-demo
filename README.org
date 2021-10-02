@@ -1,3 +1,39 @@
 * Spring Boot Vault Config Demo
 
 Demo Application for configuring Spring Boot api with configuration from Hashicorp vault
+
+#+BEGIN_SRC
+#vaultdemo_api_readonly
+path "kv/application*" {
+  capabilities = ["read","list"]
+}
+
+path "kv/data/application*" {
+  capabilities = ["read","list"]
+}
+
+path "kv/amitthk/vault-demo/dev*" {
+  capabilities = ["read", "list"]
+}
+
+path "kv/data/amitthk/vault-demo/dev*" {
+  capabilities = ["read"]
+}
+#+END_SRC
+
+payload.json
+
+#+BEGIN_SRC
+{
+  "policies": ["vaultdemo_api_readonly"],
+  "ttl": "1h",
+  "renewable": false
+}
+#+END_SRC
+
+
+Create token
+
+#+BEGIN_SRC
+curl --header "X-Vault-Token: <<editor-user-token>>" --request POST --data @payload.json http://localhost:8200/v1/auth/token/create
+#+END_SRC

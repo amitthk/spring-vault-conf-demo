@@ -1,0 +1,5 @@
+{
+  "policies": ["vaultdemo_api_readonly"],
+  "ttl": "1h",
+  "renewable": false
+}
