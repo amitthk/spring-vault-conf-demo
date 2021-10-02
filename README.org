@@ -1,0 +1,3 @@
+* Spring Boot Vault Config Demo
+
+Demo Application for configuring Spring Boot api with configuration from Hashicorp vault
