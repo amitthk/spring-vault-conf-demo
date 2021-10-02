@@ -2,6 +2,16 @@
 
 Demo Application for configuring Spring Boot api with configuration from Hashicorp vault
 
+** Running vault
+
+Running vault locally is extremely simple. We can download the binary and run vault in dev mode:
+
+More details here [[https://learn.hashicorp.com/tutorials/vault/getting-started-dev-server][vault/getting-started-dev-server]]
+
+~docker run -d -p 8200:8200 --cap-add=IPC_LOCK -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' vault~
+
+In production environment you may want to setup the high availability backends and HA configurations for vault: [[https://www.vaultproject.io/docs/concepts/ha][vault-HA]]
+
 #+BEGIN_SRC
 #vaultdemo_api_readonly
 path "kv/application*" {
