@@ -290,7 +290,7 @@ respStr = respStr + '<li>' + key + ': ' + data['data'][key] + '</li>';
 }
 #+END_SRC
 
-** Ansible automation - vault module
+** Ansible automation - hashi_vault plugin
 
 One of the important use case for our automation is Ansible, which we pretty heavily use accross all linux based systems. Ansible comes with lookup plugin which can directly integrate with vault. In our example we are setting variables from vault as below:
 
