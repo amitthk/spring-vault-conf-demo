@@ -1,0 +1,4 @@
+---
+VAULT_ADDR: http://localhost:8200
+VAULT_TOKEN: s.vS2Nw6t1Og8FUQl1zNhcyNAX
+VAULT_KEYS_PATH: kv/data/amitthk/vault-demo/dev

@@ -1,5 +1,5 @@
 {
   "policies": ["vaultdemo_api_readonly"],
-  "ttl": "10m",
+  "ttl": "48h",
   "renewable": false
 }

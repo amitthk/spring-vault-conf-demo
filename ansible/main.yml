@@ -1,0 +1,28 @@
+---
+- hosts: all
+  gather_facts: false
+#  vars_prompt:
+#    - name: VAULT_ADDR
+#      prompt: Enter the VAULT ADDRESS
+#    - name: VAULT_TOKEN
+#      prompt: Enter the VAULT TOKEN
+#    - name: VAULT_KEYS_PATH
+#      prompt: Enter the VAULT Keys PATH
+  vars:
+    vault_keys_data: "{{ lookup('hashi_vault', 'url=\"{{VAULT_ADDR}}\" token=\"{{VAULT_TOKEN}}\" secret=\"{{VAULT_KEYS_PATH}}\"')}}"
+  tasks:
+    - name: show vault config data - remove it in non dev env
+      debug:
+        msg: "VAULT_ADDR: {{VAULT_ADDR}}, VAULT_TOKEN: {{VAULT_TOKEN}}, VAULT_KEYS_PATH: {{VAULT_KEYS_PATH}}"
+    - name: Data Collected from Vault - remove it in non dev env
+      debug:
+        msg: "{{vault_keys_data}}"
+    - set_fact:
+        db_username: "{{vault_keys_data.dbuser}}"
+        db_password: "{{vault_keys_data.dbpass}}"
+        db_endpoint: "{{vault_keys_data.dbendpoint}}"
+    - name: show the variables set from vault
+      debug:
+        msg: "db_user: {{db_username}} , db_pass: {{db_password}} , db_endpoint: {{db_endpoint}}"
+
+

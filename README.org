@@ -136,7 +136,7 @@ For another implementation that we basically use with our ldap authentication (f
 
 ** Python - flask app config from vault
 
-#+
+#+BEGIN_SRC
 import os
 import hvac
 
@@ -147,7 +147,7 @@ client = hvac.Client(
 )
 print(client.read(os.environ['KEYS_PATH']))
 
-#+
+#+END_SRC
 
 ** Nodejs - environment vars from vault
 
