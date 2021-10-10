@@ -5,12 +5,52 @@ Demo Application for configuring Spring Boot api with configuration from Hashico
 ** Running vault
 
 Running vault locally is extremely simple. We can download the binary and run vault in dev mode:
+~vault server -dev~
 
 More details here [[https://learn.hashicorp.com/tutorials/vault/getting-started-dev-server][vault/getting-started-dev-server]]
 
 ~docker run -d -p 8200:8200 --cap-add=IPC_LOCK -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' vault~
 
 In production environment you may want to setup the high availability backends and HA configurations for vault: [[https://www.vaultproject.io/docs/concepts/ha][vault-HA]]
+
+
+
+*** Creating api admin policy
+#+BEGIN_SRC
+path "kv/*" {
+  capabilities = ["list"]
+}
+
+path "kv/data/application*" {
+  capabilities = ["create", "read", "update", "list"]
+}
+
+path "kv/metadata/application*" {
+  capabilities = ["create", "read", "update", "list"]
+}
+
+
+path "kv/data/amitthk/vault-demo/dev*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+
+path "kv/metadata/amitthk/vault-demo/dev*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+#+END_SRC
+
+*** Creating api admin token
+
+#+BEGIN_SRC
+{
+   "policies": ["vaultdemo_api_adm", "default", "vaultdemo_api_readonly"],
+   "ttl": "1h",
+   "renewable": false
+}
+#+END_SRC
+
+*** Creating read-only user policy
 
 #+BEGIN_SRC
 #vaultdemo_api_readonly
@@ -31,7 +71,9 @@ path "kv/data/amitthk/vault-demo/dev*" {
 }
 #+END_SRC
 
-payload.json
+*** Creating token attached with api readonly policy
+
+Update the payload.json as below
 
 #+BEGIN_SRC
 {
@@ -42,8 +84,73 @@ payload.json
 #+END_SRC
 
 
-Create token
+*** Create readonly token
 
 #+BEGIN_SRC
-curl --header "X-Vault-Token: <<editor-user-token>>" --request POST --data @payload.json http://localhost:8200/v1/auth/token/create
+curl --header "X-Vault-Token: <<api_admin_user_token>>" --request POST --data @payload.json http://localhost:8200/v1/auth/token/create
 #+END_SRC
+
+
+** Java (Spring) app integration - application.properties env. vars from vault
+
+
+** Linux shell integration - Environment variables from Vault
+
+Most basic way of interacting with vault here is to interact with the api directly with curl and then use jq to parse the response. Following code snippet from /shell/vault_draw_kv.sh in project directory does the same.
+
+Note: you either need to install jq ~yum install -y jq~ or use python and ~pip install requests~
+
+#+BEGIN_SRC
+rm -f .env
+
+user=$(curl  -H "X-Vault-Token: $VAULT_TOKEN" \
+        -X GET $VAULT_ENDPOINT/v1/$KEYS_PATH)
+
+echo DB_ENDPOINT=$(echo $user | jq -r .data.data.dbendpoint) > .env
+echo DB_USER=$(echo $user | jq -r .data.data.dbuser) >> .env
+echo DB_PASSWORD=$(echo $user | jq -r .data.data.dbpass) >> .env
+#+END_SRC
+
+*** Using simple python script to fetch config from vault
+
+Do take a look at following code snippet from /python/vault_withdraw_secrets.py file in project directory
+
+#+BEGIN_SRC
+    response = requests.get(request_url,headers=headers)
+    while retry_count >= 0:
+        time.sleep(3) # wait 3 seconds then try again
+        try:
+            #print('response: '+str(response.json()))
+            foutput = ''
+            for field_name in response.json()['data']['data']:
+                value = str(response.json()['data']['data'][field_name])
+                if should_decode is True:
+                    value = value.decode('base64')
+                foutput = foutput + field_name + "=" + value + "\n"
+
+                write_to_file(file_name=VALUE_FILE,f_output=foutput)
+#+END_SRC
+
+For another implementation that we basically use with our ldap authentication (for the api_readonly user) please check  /python/vault_withdraw_secrets_ldap-auth.py in project directory
+
+
+** Python - flask app config from vault
+
+#+
+import os
+import hvac
+
+client = hvac.Client()
+client = hvac.Client(
+ url=os.environ['VAULT_URL'],
+ token=os.environ['VAULT_TOKEN']
+)
+print(client.read(os.environ['KEYS_PATH']))
+
+#+
+
+** Nodejs - environment vars from vault
+
+
+** Ansible automation - vault module
+

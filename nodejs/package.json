@@ -1,0 +1,26 @@
+{
+  "name": "nodejs-vault-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amitthk/vault-intgs.git"
+  },
+  "keywords": [
+    "vault",
+    "nodejs"
+  ],
+  "author": "amitthk",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/amitthk/vault-intgs/issues"
+  },
+  "homepage": "https://github.com/amitthk/vault-intgs#readme",
+  "dependencies": {
+    "node-vault": "^0.9.22"
+  }
+}
