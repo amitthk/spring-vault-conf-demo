@@ -21,7 +21,7 @@ We can run vault from the image available in docker hub as well:
 
 In production environment you would run vault in server mode: [[https://learn.hashicorp.com/tutorials/vault/getting-started-deploy]] the high availability backends and HA configurations for vault: [[https://www.vaultproject.io/docs/concepts/ha][Vault-HA]]
 
-Once vault is up and running, we can login to the vault with either the token provided above or obtain from console. We would enable Key Value engine at location kv if it is not already enabled. And for this use case I enabled userpass authentication. Although in enterprise environments LDAP authentication would be pretty standard. The user experience does not change. Vault will be able to provide the seamless API experience regardless of authentication method. We only need to change from /auth/userpass  to /auth/ldap in api call.
+Once vault is up and running, we can login to the vault with either the token provided above or obtain from console. We would enable Key Value engine at location kv if it is not already enabled. And for this use case we enabled userpass authentication. Although in enterprise environments LDAP authentication would be pretty standard. The user experience does not change. Vault will be able to provide the seamless API experience regardless of authentication method. We only need to change from /auth/userpass  to /auth/ldap in api call.
 
 Now to manage or read secrets from vault we would need to setup the policies to manage/access the secrets. You would want to setup this structure according to our project/applications hierarchy. In this example we are going to create two simple policies.  The Application admin policy which can be assigned to Application admin who would be able to login to vault and generate either a token capable of managing the configurations of app like himself. Or a readonly token which allows only read-only capabilities to the configs.
 
@@ -40,6 +40,8 @@ VAULT_KEYS_PATH=<<Location of your config values. In our case it is kv/data/amit
 We would login to vault UI with root token and create following policy:
 
 vaultdemo_api_adm
+
+[[https://github.com/amitthk/vault-intgs/blob/master/images/adm_policy.png]]
 
 This policy allows the user to first of all be able to list the contents in key value store (kv). Then allows our safe location kv/amitthk/vault-demo/dev* to be editable with this policy.
 
@@ -93,7 +95,13 @@ path "kv/data/amitthk/vault-demo/dev*" {
 }
 #+END_SRC
 
+We created a user named vaultdemoadm under userpass authentication method:
+
+[[https://github.com/amitthk/vault-intgs/blob/master/images/userpass.png]]
+
 Now we are going to assign our policies to our user who is able to login with userpass method:
+
+
 #+BEGIN_SRC 
 vault write auth/userpass/users/vaultdemoadm password=password123 policies=default,vaultdemo_api_adm,vaultdemo_api_readonly
 #+END_SRC
@@ -102,9 +110,10 @@ More details: [[https://www.vaultproject.io/docs/concepts/policies]]
 
 Our user vaultdemoadm will then be able to login to the vault vi UI and save the key value pairs as in below image.
 
-[[./images/vaultdemoadm_kv_saved.jpg]]
-
 User can also login from CLI or API interface and update the above values.
+
+[[https://github.com/amitthk/vault-intgs/blob/master/images/vaultdemoadm_kv_saved.png]]
+
 
 #+BEGIN_SRC 
 curl --request POST --data '{"password":"password123", "ttl": "1h"}' http://localhost:8200/v1/auth/userpass/login/vaultdemoadm
@@ -243,7 +252,7 @@ app.db.pass=${dbpass}
 
 ** Python - flask app config from vault
 
-For python we have some of the scripts above which interact with API interface. For our flask api in the example directory [[./python/webapp.py]] we use hvac client library (remember to ~pip install hvac~ ). Below code does the integration:
+For python we have some of the scripts above which interact with API interface. For our flask api in the example directory [[https://github.com/amitthk/vault-intgs/blob/master/python/webapp.py]] we use hvac client library (remember to ~pip install hvac~ ). Below code does the integration:
 
 #+BEGIN_SRC
 try:
@@ -260,7 +269,7 @@ except Exception as exc:
 #+END_SRC
 
 ** Nodejs - environment vars from vault
-For nodejs integration we used the node-vault library. ~npm install --save node-vault~ . The code in example directory [[./nodejs/index.js]] is a simple http web server which uses following code to fetch config from vault:
+For nodejs integration we used the node-vault library. ~npm install --save node-vault~ . The code in example directory [[https://github.com/amitthk/vault-intgs/blob/master/nodejs/index.js]] is a simple http web server which uses following code to fetch config from vault:
 
 #+BEGIN_SRC 
 const vaultAddr = process.env.VAULT_ADDR;
