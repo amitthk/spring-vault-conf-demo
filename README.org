@@ -1,21 +1,48 @@
-* Spring Boot Vault Config Demo
+* Vault Integrations - Shell, Java, Python, Nodejs, Ansible
 
-Demo Application for configuring Spring Boot api with configuration from Hashicorp vault
+In this article I tried to consolidate some of the simplest methods to integrate with vault with 4 major mainstream use cases:
+1. Simple shell script integration with environment variables from Vault. We also take a look at some python based scripts for some advanced use cases.
+2. Python (/flask API) integration using hvac Client library
+3. Java (Spring boot) application using the VaultConfig API to directly use Vault secrets in application.properties
+4. Integration with Nodejs using node-vault library
+5. Integration to Ansible to directly use variables from Hashicorp Vault (Not Ansible Vault)
 
-** Running vault
+Although a lot of documentation exists on this topic still the question keeps coming back to me as our team found the examples & documentation a bit difficult to get started. So I decided to write these simple kickstarters to get us started with the least amount of steps. 
 
-Running vault locally is extremely simple. We can download the binary and run vault in dev mode:
-~vault server -dev~
+
+** Setting up vault
+
+Running vault locally is pretty simple. We can download the binary [[https://www.vaultproject.io/downloads]] and run vault in dev mode ~vault server -dev~
 
 More details here [[https://learn.hashicorp.com/tutorials/vault/getting-started-dev-server][vault/getting-started-dev-server]]
 
+We can run vault from the image available in docker hub as well:
 ~docker run -d -p 8200:8200 --cap-add=IPC_LOCK -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' vault~
 
-In production environment you may want to setup the high availability backends and HA configurations for vault: [[https://www.vaultproject.io/docs/concepts/ha][vault-HA]]
+In production environment you would run vault in server mode: [[https://learn.hashicorp.com/tutorials/vault/getting-started-deploy]] the high availability backends and HA configurations for vault: [[https://www.vaultproject.io/docs/concepts/ha][Vault-HA]]
 
+Once vault is up and running, we can login to the vault with either the token provided above or obtain from console. We would enable Key Value engine at location kv if it is not already enabled. And for this use case I enabled userpass authentication. Although in enterprise environments LDAP authentication would be pretty standard. The user experience does not change. Vault will be able to provide the seamless API experience regardless of authentication method. We only need to change from /auth/userpass  to /auth/ldap in api call.
 
+Now to manage or read secrets from vault we would need to setup the policies to manage/access the secrets. You would want to setup this structure according to our project/applications hierarchy. In this example we are going to create two simple policies.  The Application admin policy which can be assigned to Application admin who would be able to login to vault and generate either a token capable of managing the configurations of app like himself. Or a readonly token which allows only read-only capabilities to the configs.
+
+Please note that in all below examples we are using pretty standard variables which need to be provided according to the location of your vault during the launch of respective samples.
+
+#+BEGIN_SRC 
+VAULT_HOST=localhost
+VAULT_PORT=8200
+VAULT_ADDR=http://localhost:8200
+VAULT_TOKEN=<<vault_token>>
+VAULT_KEYS_PATH=<<Location of your config values. In our case it is kv/data/amitthk/vault-demo/dev>>
+#+END_SRC
 
 *** Creating api admin policy
+
+We would login to vault UI with root token and create following policy:
+
+vaultdemo_api_adm
+
+This policy allows the user to first of all be able to list the contents in key value store (kv). Then allows our safe location kv/amitthk/vault-demo/dev* to be editable with this policy.
+
 #+BEGIN_SRC
 path "kv/*" {
   capabilities = ["list"]
@@ -29,6 +56,9 @@ path "kv/metadata/application*" {
   capabilities = ["create", "read", "update", "list"]
 }
 
+path "kv/amitthk/vault-demo/dev*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
 
 path "kv/data/amitthk/vault-demo/dev*" {
   capabilities = ["create", "read", "update", "delete", "list"]
@@ -40,20 +70,12 @@ path "kv/metadata/amitthk/vault-demo/dev*" {
 }
 #+END_SRC
 
-*** Creating api admin token
-
-#+BEGIN_SRC
-{
-   "policies": ["vaultdemo_api_adm", "default", "vaultdemo_api_readonly"],
-   "ttl": "1h",
-   "renewable": false
-}
-#+END_SRC
-
 *** Creating read-only user policy
 
+vaultdemo_api_readonly
+
 #+BEGIN_SRC
-#vaultdemo_api_readonly
+
 path "kv/application*" {
   capabilities = ["read","list"]
 }
@@ -71,9 +93,32 @@ path "kv/data/amitthk/vault-demo/dev*" {
 }
 #+END_SRC
 
+Now we are going to assign our policies to our user who is able to login with userpass method:
+#+BEGIN_SRC 
+vault write auth/userpass/users/vaultdemoadm password=password123 policies=default,vaultdemo_api_adm,vaultdemo_api_readonly
+#+END_SRC
+
+More details: [[https://www.vaultproject.io/docs/concepts/policies]]
+
+Our user vaultdemoadm will then be able to login to the vault vi UI and save the key value pairs as in below image.
+
+[[./images/vaultdemoadm_kv_saved.jpg]]
+
+User can also login from CLI or API interface and update the above values.
+
+#+BEGIN_SRC 
+curl --request POST --data '{"password":"password123", "ttl": "1h"}' http://localhost:8200/v1/auth/userpass/login/vaultdemoadm
+#+END_SRC
+
+This gives us response as below. Here our token is client_token:
+
+#+BEGIN_SRC 
+{"request_id":"a4be2704-5079-e719-7c07-51ea105250a2","lease_id":"","renewable":false,"lease_duration":0,"data":null,"wrap_info":null,"warnings":null,"auth":{"client_token":"s.HvmpPVjnGEK1KpSJPZDhhEfi","accessor":"kodwoxRXSgzVTnhKv2nLfdNT","policies":["default","vaultdemo_api_adm","vaultdemo_api_readonly"],"token_policies":["default","vaultdemo_api_adm","vaultdemo_api_readonly"],"metadata":{"username":"vaultdemoadm"},"lease_duration":2764800,"renewable":true,"entity_id":"41df50e9-98e1-d252-b630-10ae12952397","token_type":"service","orphan":true}}
+#+END_SRC
+
 *** Creating token attached with api readonly policy
 
-Update the payload.json as below
+We create the file payload.json as below:
 
 #+BEGIN_SRC
 {
@@ -83,16 +128,26 @@ Update the payload.json as below
 }
 #+END_SRC
 
-
-*** Create readonly token
+Following command will be used to generate the token. (Remember to replace <<api_admin_user_token>> below with token from your login above)
 
 #+BEGIN_SRC
 curl --header "X-Vault-Token: <<api_admin_user_token>>" --request POST --data @payload.json http://localhost:8200/v1/auth/token/create
 #+END_SRC
 
 
-** Java (Spring) app integration - application.properties env. vars from vault
+*** Creating api admin token
 
+We can also use above token to generate an api admin token for longer lease time.
+
+#+BEGIN_SRC
+{
+   "policies": ["vaultdemo_api_adm", "default", "vaultdemo_api_readonly"],
+   "ttl": "1h",
+   "renewable": false
+}
+#+END_SRC
+
+Now let us use the config values stored in vault above with our apps. We will be using our readonly token to read these values in below examples.
 
 ** Linux shell integration - Environment variables from Vault
 
@@ -101,10 +156,21 @@ Most basic way of interacting with vault here is to interact with the api direct
 Note: you either need to install jq ~yum install -y jq~ or use python and ~pip install requests~
 
 #+BEGIN_SRC
+#!/bin/bash
+
+if [[ $# -eq 0 ]] ; then
+    echo 'usage ./vault_draw_kv.sh <<VAULT_ADDR>> <<VAULT_TOKEN>>  <<VAULT_KEYS_PATH>>'
+    exit 1
+fi
+
+VAULT_ADDR=$1
+VAULT_TOKEN=$2
+VAULT_KEYS_PATH=$3
+
 rm -f .env
 
 user=$(curl  -H "X-Vault-Token: $VAULT_TOKEN" \
-        -X GET $VAULT_ENDPOINT/v1/$KEYS_PATH)
+        -X GET $VAULT_ADDR/v1/$VAULT_KEYS_PATH)
 
 echo DB_ENDPOINT=$(echo $user | jq -r .data.data.dbendpoint) > .env
 echo DB_USER=$(echo $user | jq -r .data.data.dbuser) >> .env
@@ -133,24 +199,99 @@ Do take a look at following code snippet from /python/vault_withdraw_secrets.py 
 
 For another implementation that we basically use with our ldap authentication (for the api_readonly user) please check  /python/vault_withdraw_secrets_ldap-auth.py in project directory
 
+** Java (Spring) app integration - application.properties env. vars from vault
+
+Second scenario we are going to take a look is with a java application.  To integrate vault to our Java application, first of all let us add following dependencies to our pom/gradle:
+
+#+BEGIN_SRC 
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-bootstrap</artifactId>
+			<version>3.0.4</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-vault-config</artifactId>
+			<version>3.0.4</version>
+		</dependency>
+#+END_SRC
+
+Bootstrap is to integrate the vault values during bootstrap of our app using following bootstrap file.
+
+#+BEGIN_SRC 
+spring:
+  cloud:
+    vault:
+      host: ${VAULT_HOST}
+      port: ${VAULT_PORT}
+      scheme: http
+      token: ${VAULT_TOKEN}
+      kv:
+        enabled: true
+        backend: kv
+      application-name: amitthk/vault-demo/dev
+#+END_SRC
+
+That is all. Now we can use our variables directly in our application.properties as below:
+
+#+BEGIN_SRC 
+server.port=8089
+
+app.db.user=${dbuser}
+app.db.pass=${dbpass}
+#+END_SRC
 
 ** Python - flask app config from vault
 
-#+BEGIN_SRC
-import os
-import hvac
+For python we have some of the scripts above which interact with API interface. For our flask api in the example directory [[./python/webapp.py]] we use hvac client library (remember to ~pip install hvac~ ). Below code does the integration:
 
-client = hvac.Client()
-client = hvac.Client(
- url=os.environ['VAULT_URL'],
- token=os.environ['VAULT_TOKEN']
-)
-print(client.read(os.environ['KEYS_PATH']))
+#+BEGIN_SRC
+try:
+    client = hvac.Client(url=app.config['VAULT_ADDR'])
+    client.token=token=app.config['VAULT_TOKEN']
+    keys_path=app.config['VAULT_KEYS_PATH']
+    keys_data=client.read(keys_path)
+    for appkey in keys_data['data']['data']:
+        app.config[appkey]=keys_data['data']['data'][appkey]
+except Exception as exc:
+    print("Couldn't fetch config from vault: " + str(exc))
+    raise exc
 
 #+END_SRC
 
 ** Nodejs - environment vars from vault
+For nodejs integration we used the node-vault library. ~npm install --save node-vault~ . The code in example directory [[./nodejs/index.js]] is a simple http web server which uses following code to fetch config from vault:
 
+#+BEGIN_SRC 
+const vaultAddr = process.env.VAULT_ADDR;
+const vaultToken = process.env.VAULT_TOKEN;
+const vaultKeysPath = process.env.VAULT_KEYS_PATH;
+
+
+const vault = require("node-vault")({
+  apiVersion: "v1",
+  endpoint: vaultAddr,
+});
+
+vault.token = vaultToken
+const { data } = await vault.read(vaultKeysPath);
+let respStr = '<html><head></head><body><ul>'
+for(var key in data['data']){
+respStr = respStr + '<li>' + key + ': ' + data['data'][key] + '</li>';
+}
+#+END_SRC
 
 ** Ansible automation - vault module
+
+One of the important use case for our automation is Ansible, which we pretty heavily use accross all linux based systems. Ansible comes with lookup plugin which can directly integrate with vault. In our example we are setting variables from vault as below:
+
+#+BEGIN_SRC 
+  vars:
+    vault_keys_data: "{{ lookup('hashi_vault', 'url=\"{{VAULT_ADDR}}\" token=\"{{VAULT_TOKEN}}\" secret=\"{{VAULT_KEYS_PATH}}\"')}}"
+  tasks:
+    - set_fact:
+        db_username: "{{vault_keys_data.dbuser}}"
+        db_password: "{{vault_keys_data.dbpass}}"
+        db_endpoint: "{{vault_keys_data.dbendpoint}}"
+#+END_SRC
 

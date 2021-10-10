@@ -28,14 +28,14 @@ def init(app):
         app.config['DEBUG'] = config.get("config", "DEBUG")
         app.config['IP_ADDRESS'] = config.get("config", "IP_ADDRESS")
         app.config['PORT'] = config.get("config", "PORT")
-        app.config['VAULT_URL'] = config.get("config","VAULT_URL")
+        app.config['VAULT_ADDR'] = config.get("config","VAULT_ADDR")
         app.config['VAULT_TOKEN'] = config.get("config","VAULT_TOKEN")
         app.config['VAULT_KEYS_PATH'] = config.get('config','VAULT_KEYS_PATH')
         print("Succesfully read configs from: " + config_location)
     except:
         print("Couldn't read configs from: " + config_location)
     try:
-        client = hvac.Client(url=app.config['VAULT_URL'])
+        client = hvac.Client(url=app.config['VAULT_ADDR'])
         client.token=token=app.config['VAULT_TOKEN']
         keys_path=app.config['VAULT_KEYS_PATH']
         keys_data=client.read(keys_path)

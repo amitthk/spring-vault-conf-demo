@@ -1,8 +1,8 @@
 spring:
   cloud:
     vault:
-      host: localhost
-      port: 8200
+      host: ${VAULT_HOST}
+      port: ${VAULT_PORT}
       scheme: http
       token: ${VAULT_TOKEN}
       kv:
